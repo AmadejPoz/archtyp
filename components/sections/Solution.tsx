@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import FadeIn from "../animations/FadeIn";
 import { motion } from "framer-motion";
 
@@ -72,7 +73,7 @@ export default function Solution() {
         <div className="grid grid-cols-1 gap-8 mt-16 max-w-4xl mx-auto">
           {capabilities.map((capability, index) => {
             // Define abstract/avant-garde SVG icons for each capability
-            const icons: Record<string, JSX.Element> = {
+            const icons: Record<string, React.ReactElement> = {
               Speech: (
                 <svg viewBox="0 0 100 100" fill="none" className="w-full h-full">
                   {/* Oscillating waveforms */}

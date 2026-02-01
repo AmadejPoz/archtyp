@@ -37,7 +37,7 @@ export default function PartnerWithUs() {
                   <p className="text-archtyp-text-primary font-semibold mb-2">
                     Sell robots? Wish they were smarter?
                   </p>
-                  <p className="text-archtyp-purple-light">Let's talk.</p>
+                  <p className="text-archtyp-purple-light">Let&apos;s talk.</p>
                 </motion.div>
                 <motion.div
                   whileHover={{ scale: 1.02, y: -5 }}
@@ -45,9 +45,9 @@ export default function PartnerWithUs() {
                   className="bg-archtyp-bg-card border-2 border-archtyp-purple-primary/20 rounded-lg p-6 hover:border-archtyp-purple-primary/50"
                 >
                   <p className="text-archtyp-text-primary font-semibold mb-2">
-                    Build robots? Don't want to build AI?
+                    Build robots? Don&apos;t want to build AI?
                   </p>
-                  <p className="text-archtyp-purple-light">Let's talk.</p>
+                  <p className="text-archtyp-purple-light">Let&apos;s talk.</p>
                 </motion.div>
               </div>
 
