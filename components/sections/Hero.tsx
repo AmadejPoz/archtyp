@@ -175,13 +175,6 @@ export default function Hero() {
                   ARCHTYP
                 </motion.h1>
               </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, scaleX: 0 }}
-                animate={{ opacity: 1, scaleX: 1 }}
-                transition={{ duration: 1, delay: 1.2 }}
-                className="h-px w-64 mx-auto bg-gradient-to-r from-transparent via-archtyp-purple-primary to-transparent"
-              />
             </div>
 
             {/* CTA Buttons with enhanced animation */}
