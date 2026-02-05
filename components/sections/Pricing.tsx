@@ -7,7 +7,7 @@ import GlowButton from "../animations/GlowButton";
 const pricingPlans = [
   {
     name: "Standard",
-    price: "€79",
+    price: "€99",
     period: "/month per robot",
     features: [
       "Full cognitive stack",

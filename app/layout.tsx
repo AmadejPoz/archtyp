@@ -23,6 +23,10 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "ARCHTYP - The Cognitive Layer for Robots",
   description: "Universal cognitive platform for service robots and humanoids. Speech, understanding, memory, personality – in one layer.",
+  icons: {
+    icon: "/images/Untitled design (9).png",
+    apple: "/images/Untitled design (9).png",
+  },
 };
 
 export default function RootLayout({
