@@ -65,35 +65,18 @@ export default function Hero() {
             </p>
           </motion.div>
 
-          {/* Main content */}
-          <div className="relative text-center py-20">
+          {/* Main content - mobile: flex column, desktop: relative positioning */}
+          <div className="relative text-center py-20 flex flex-col lg:block">
 
-            {/* Logo - behind title */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, rotate: 0 }}
-              animate={{ opacity: 1, scale: 1, rotate: 360 }}
-              transition={{ duration: 2, ease: "easeOut" }}
-              className="absolute inset-0 flex items-center justify-center pointer-events-none"
-            >
-              <Image
-                src="/images/Untitled design (9).png"
-                alt="ARCHTYP Logo"
-                width={700}
-                height={700}
-                className="w-auto h-[500px] lg:h-[700px] object-contain"
-                priority
-              />
-            </motion.div>
-
-            {/* Title - centered on logo */}
-            <div className="relative z-10 space-y-8">
+            {/* Title - mobile: order 1 (first), desktop: centered on logo */}
+            <div className="relative z-10 space-y-8 order-1 lg:order-none">
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 1, delay: 0.6 }}
               >
                 <motion.h1
-                  className="text-7xl sm:text-8xl lg:text-9xl font-display font-bold text-archtyp-text-primary mb-8"
+                  className="text-6xl sm:text-7xl lg:text-9xl font-display font-bold text-archtyp-text-primary mb-8"
                   initial={{ letterSpacing: "0.5em", opacity: 0 }}
                   animate={{ letterSpacing: "0.05em", opacity: 1 }}
                   transition={{ duration: 1.2, delay: 0.8 }}
@@ -103,12 +86,29 @@ export default function Hero() {
               </motion.div>
             </div>
 
-            {/* CTA Buttons with enhanced animation */}
+            {/* Logo - mobile: order 2 (middle), desktop: absolute behind title */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, rotate: 0 }}
+              animate={{ opacity: 1, scale: 1, rotate: 360 }}
+              transition={{ duration: 2, ease: "easeOut" }}
+              className="relative lg:absolute lg:inset-0 flex items-center justify-center pointer-events-none order-2 lg:order-none my-8 lg:my-0"
+            >
+              <Image
+                src="/images/Untitled design (9).png"
+                alt="ARCHTYP Logo"
+                width={700}
+                height={700}
+                className="w-auto h-[300px] sm:h-[400px] lg:h-[700px] object-contain"
+                priority
+              />
+            </motion.div>
+
+            {/* CTA Buttons - mobile: order 3 (last), desktop: below title */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 1.8, duration: 0.8 }}
-              className="flex flex-col sm:flex-row gap-6 justify-center items-center mt-16 relative z-20"
+              className="flex flex-col sm:flex-row gap-6 justify-center items-center mt-8 lg:mt-16 relative z-20 order-3 lg:order-none"
             >
               <GlowButton variant="primary" onClick={() => scrollToSection("#contact")}>
                 Request Demo

@@ -94,7 +94,7 @@ export default function NeuralNetwork() {
         brightness: 0,
         baseBrightness: Math.random() * 0.01,  // Very subtle base glow
         pulsePhase: Math.random() * Math.PI * 2,
-        lastFired: 0
+        lastFired: -5 - Math.random() * 5 // Start with negative so neurons can fire immediately
       });
     }
 
@@ -132,6 +132,12 @@ export default function NeuralNetwork() {
 
     neuronsRef.current = neurons;
     const sphereRadiusRef = sphereRadius;
+
+    // Give some random neurons initial brightness to start activity immediately
+    for (let i = 0; i < 20; i++) {
+      const randomNeuron = neurons[Math.floor(Math.random() * neurons.length)];
+      randomNeuron.brightness = 0.5 + Math.random() * 0.3;
+    }
 
     // Mouse move handler
     const handleMouseMove = (e: MouseEvent) => {
@@ -241,7 +247,7 @@ export default function NeuralNetwork() {
         }
 
         // Fire neuron and create signals if bright enough (with longer refractory period)
-        if (neuron.brightness > 0.7 && time - neuron.lastFired > 3.0) {
+        if (neuron.brightness > 0.4 && time - neuron.lastFired > 3.0) {
           neuron.lastFired = time;
           // Increase signal chance by 15% near mouse (reduced by 50%)
           const nearMouse = mouseDistance < 250;
