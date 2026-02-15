@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Image from "next/image";
-import Particles from "../animations/Particles";
+import NeuralNetwork from "../animations/NeuralNetwork";
 import GlowButton from "../animations/GlowButton";
 
 export default function Hero() {
@@ -15,8 +15,8 @@ export default function Hero() {
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Animated Background Elements */}
-      <Particles />
+      {/* Neural Network Background */}
+      <NeuralNetwork />
 
       {/* Geometric background accents */}
       <motion.div
