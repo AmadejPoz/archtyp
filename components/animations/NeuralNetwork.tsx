@@ -16,15 +16,34 @@ interface Neuron3D {
   brightness: number;
   baseBrightness: number;
   pulsePhase: number;
+  lastFired: number; // Track when neuron last fired
+}
+
+interface Signal {
+  fromNeuron: number;
+  toNeuron: number;
+  progress: number; // 0 to 1
+  strength: number;
+  speed: number;
+}
+
+interface ActiveRegion {
+  x: number;
+  y: number;
+  z: number;
+  radius: number;
+  strength: number;
+  decay: number;
 }
 
 export default function NeuralNetwork() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const neuronsRef = useRef<Neuron3D[]>([]);
+  const signalsRef = useRef<Signal[]>([]);
+  const activeRegionsRef = useRef<ActiveRegion[]>([]);
   const mouseRef = useRef({ x: 0, y: 0 });
   const frameRef = useRef(0);
-  const animationRef = useRef<number>();
-  const rotationRef = useRef({ x: 0, y: 0 });
+  const animationRef = useRef<number>(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -73,8 +92,9 @@ export default function NeuralNetwork() {
         size,
         connections: [],
         brightness: 0,
-        baseBrightness: Math.random() * 0.02,
-        pulsePhase: Math.random() * Math.PI * 2
+        baseBrightness: Math.random() * 0.01,  // Very subtle base glow
+        pulsePhase: Math.random() * Math.PI * 2,
+        lastFired: 0
       });
     }
 
@@ -119,11 +139,6 @@ export default function NeuralNetwork() {
         x: e.clientX,
         y: e.clientY,
       };
-      // Auto-rotate based on mouse position - more subtle
-      rotationRef.current = {
-        y: (e.clientX - canvas.width / 2) * 0.0002,
-        x: (e.clientY - canvas.height / 2) * 0.0002
-      };
     };
 
     window.addEventListener("mousemove", handleMouseMove);
@@ -137,24 +152,18 @@ export default function NeuralNetwork() {
       return { screenX, screenY, scale };
     };
 
-    // Rotate point in 3D space
-    const rotatePoint3D = (x: number, y: number, z: number, rotX: number, rotY: number) => {
-      // Rotate around Y axis
-      let cosY = Math.cos(rotY);
-      let sinY = Math.sin(rotY);
-      let tempX = x * cosY - z * sinY;
-      let tempZ = x * sinY + z * cosY;
 
-      // Rotate around X axis
-      let cosX = Math.cos(rotX);
-      let sinX = Math.sin(rotX);
-      let finalY = y * cosX - tempZ * sinX;
-      let finalZ = y * sinX + tempZ * cosX;
+    // Project neurons to static positions
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
 
-      return { x: tempX, y: finalY, z: finalZ };
-    };
-
-    let rotationAngle = { x: 0, y: 0 };
+    // Initial projection of neurons (static positions)
+    neurons.forEach((neuron) => {
+      const projected = project3D(neuron.x, neuron.y, neuron.z, centerX, centerY);
+      neuron.screenX = projected.screenX;
+      neuron.screenY = projected.screenY;
+      neuron.depth = neuron.z;
+    });
 
     const animate = () => {
       frameRef.current++;
@@ -165,90 +174,205 @@ export default function NeuralNetwork() {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       const neurons = neuronsRef.current;
+      const signals = signalsRef.current;
+      const activeRegions = activeRegionsRef.current;
       const mouse = mouseRef.current;
       const time = frameRef.current * 0.01;
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
 
-      // Smooth rotation
-      rotationAngle.x += rotationRef.current.x * 0.05;
-      rotationAngle.y += rotationRef.current.y * 0.05;
+      // Create random active regions (brain activity) - less frequent
+      if (Math.random() > 0.998) {
+        const randomNeuron = neurons[Math.floor(Math.random() * neurons.length)];
+        activeRegions.push({
+          x: randomNeuron.x,
+          y: randomNeuron.y,
+          z: randomNeuron.z,
+          radius: 60 + Math.random() * 80,
+          strength: 0.5 + Math.random() * 0.2,
+          decay: 0.96
+        });
+      }
 
-      // Very subtle auto-rotation
-      rotationAngle.y += 0.001;
+      // Update and filter active regions
+      activeRegionsRef.current = activeRegions.filter(region => {
+        region.strength *= region.decay;
+        region.radius *= 0.99;
+        return region.strength > 0.01;
+      });
 
-      // Update 3D positions and project to 2D
-      neurons.forEach((neuron) => {
-        // Rotate neuron position
-        const rotated = rotatePoint3D(neuron.x, neuron.y, neuron.z, rotationAngle.x, rotationAngle.y);
-        const projected = project3D(rotated.x, rotated.y, rotated.z, centerX, centerY);
-
-        neuron.screenX = projected.screenX;
-        neuron.screenY = projected.screenY;
-        neuron.depth = rotated.z;
-
+      // Update neuron brightness
+      neurons.forEach((neuron, index) => {
         // Calculate distance from mouse in 2D space
         const mouseDistance = Math.hypot(
           neuron.screenX - mouse.x,
           neuron.screenY - mouse.y
         );
 
-        // Mouse interaction - stronger effect and wider range
-        const maxMouseDistance = 300;
+        // Mouse interaction - increased by 20%
+        const maxMouseDistance = 250;
         const mouseBrightness = mouseDistance < maxMouseDistance
-          ? Math.pow(1 - mouseDistance / maxMouseDistance, 1.2)
+          ? Math.pow(1 - mouseDistance / maxMouseDistance, 0.8) * 1.1 // Increased from 0.9 to 1.1 (20% more)
           : 0;
 
-        // Pulse effect
-        const pulse = Math.sin(time * 2 + neuron.pulsePhase) * 0.01;
+        // Check if neuron is in any active region
+        let regionBrightness = 0;
+        activeRegions.forEach(region => {
+          const dist = Math.sqrt(
+            Math.pow(neuron.x - region.x, 2) +
+            Math.pow(neuron.y - region.y, 2) +
+            Math.pow(neuron.z - region.z, 2)
+          );
+          if (dist < region.radius) {
+            regionBrightness = Math.max(regionBrightness,
+              (1 - dist / region.radius) * region.strength * 0.5);
+          }
+        });
 
-        // Update brightness - faster response
-        neuron.brightness = neuron.brightness * 0.85 +
-                           (mouseBrightness + neuron.baseBrightness + pulse) * 0.15;
+        // Very subtle pulse effect
+        const pulse = Math.sin(time * 2 + neuron.pulsePhase) * 0.005;
+
+        // Combine all brightness sources
+        const targetBrightness = Math.max(mouseBrightness, regionBrightness) + neuron.baseBrightness + pulse;
+
+        // Faster response when lighting up, slower fade out
+        if (targetBrightness > neuron.brightness) {
+          neuron.brightness = neuron.brightness * 0.7 + targetBrightness * 0.3;
+        } else {
+          neuron.brightness = neuron.brightness * 0.92 + targetBrightness * 0.08;
+        }
+
+        // Fire neuron and create signals if bright enough (with longer refractory period)
+        if (neuron.brightness > 0.7 && time - neuron.lastFired > 3.0) {
+          neuron.lastFired = time;
+          // Increase signal chance by 15% near mouse (reduced by 50%)
+          const nearMouse = mouseDistance < 250;
+          const signalChance = nearMouse ? 0.85 : 0.925; // 15% near mouse, 7.5% elsewhere
+
+          if (Math.random() > signalChance) {
+            const connIndex = neuron.connections[Math.floor(Math.random() * neuron.connections.length)];
+            signals.push({
+              fromNeuron: index,
+              toNeuron: connIndex,
+              progress: 0,
+              strength: neuron.brightness * 0.7,
+              speed: 0.015 + Math.random() * 0.015
+            });
+          }
+        }
+      });
+
+      // Update and draw signals
+      signalsRef.current = signals.filter(signal => {
+        signal.progress += signal.speed;
+
+        // Remove completed signals
+        if (signal.progress >= 1) {
+          // Slightly activate target neuron when signal arrives
+          neurons[signal.toNeuron].brightness = Math.min(1,
+            neurons[signal.toNeuron].brightness + signal.strength * 0.2);
+          return false;
+        }
+
+        // Draw the signal
+        const fromNeuron = neurons[signal.fromNeuron];
+        const toNeuron = neurons[signal.toNeuron];
+
+        // Interpolate position along the connection
+        const x = fromNeuron.screenX + (toNeuron.screenX - fromNeuron.screenX) * signal.progress;
+        const y = fromNeuron.screenY + (toNeuron.screenY - fromNeuron.screenY) * signal.progress;
+
+        // Draw signal as glowing segment traveling along connection
+        const tailLength = 0.08; // Length of the tail as percentage of connection
+        const tailProgress = Math.max(0, signal.progress - tailLength);
+        const tailX = fromNeuron.screenX + (toNeuron.screenX - fromNeuron.screenX) * tailProgress;
+        const tailY = fromNeuron.screenY + (toNeuron.screenY - fromNeuron.screenY) * tailProgress;
+
+        // Glow effect around signal - more purple
+        const glowGradient = ctx.createRadialGradient(x, y, 0, x, y, 8);
+        glowGradient.addColorStop(0, `rgba(210, 170, 250, ${signal.strength * 0.3})`);
+        glowGradient.addColorStop(1, `rgba(180, 120, 240, 0)`);
+
+        ctx.beginPath();
+        ctx.arc(x, y, 8, 0, Math.PI * 2);
+        ctx.fillStyle = glowGradient;
+        ctx.fill();
+
+        // Main signal trail - purple-tinted, not white
+        const gradient = ctx.createLinearGradient(tailX, tailY, x, y);
+        gradient.addColorStop(0, `rgba(180, 120, 240, 0)`);
+        gradient.addColorStop(0.3, `rgba(200, 150, 250, ${signal.strength * 0.3})`);
+        gradient.addColorStop(0.7, `rgba(220, 180, 250, ${signal.strength * 0.6})`);
+        gradient.addColorStop(1, `rgba(230, 200, 255, ${signal.strength * 0.9})`);
+
+        ctx.beginPath();
+        ctx.moveTo(tailX, tailY);
+        ctx.lineTo(x, y);
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 1 + signal.strength * 0.5;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        // Leading edge - purple-white mix
+        ctx.beginPath();
+        ctx.arc(x, y, 0.8 + signal.strength * 0.4, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(225, 200, 255, ${signal.strength * 0.9})`;
+        ctx.fill();
+
+        return true;
       });
 
       // Sort neurons by depth (back to front)
       const sortedNeurons = [...neurons].sort((a, b) => a.depth - b.depth);
 
-      // Draw connections only when mouse is near
-      sortedNeurons.forEach((neuron) => {
-        // Calculate mouse proximity
-        const mouseDistance = Math.hypot(
-          neuron.screenX - mouse.x,
-          neuron.screenY - mouse.y
-        );
+      // Draw ALL connections for ALL neurons
+      sortedNeurons.forEach((neuron, neuronIndex) => {
+        neuron.connections.forEach((connIndex) => {
+          const connectedNeuron = neurons[connIndex];
 
-        // Only draw connections if mouse is close - larger radius for better visibility
-        if (mouseDistance < 250 && neuron.brightness > 0.05) {
-          neuron.connections.forEach((connIndex) => {
-            const connectedNeuron = neurons[connIndex];
+          // Only draw if connected neuron is behind current neuron (for depth sorting)
+          if (connectedNeuron.depth <= neuron.depth) {
+            // Calculate mouse proximity for this neuron
+            const mouseDistance = Math.hypot(
+              neuron.screenX - mouse.x,
+              neuron.screenY - mouse.y
+            );
 
-            // Only draw if connected neuron is behind current neuron
-            if (connectedNeuron.depth <= neuron.depth) {
-              const connectionBrightness = neuron.brightness;
+            // Check if there's a signal on this connection
+            const signalOnConnection = signals.find(s =>
+              (s.fromNeuron === neuronIndex && s.toNeuron === connIndex) ||
+              (s.fromNeuron === connIndex && s.toNeuron === neuronIndex)
+            );
 
-              ctx.beginPath();
-              ctx.moveTo(neuron.screenX, neuron.screenY);
-              ctx.lineTo(connectedNeuron.screenX, connectedNeuron.screenY);
+            // Base brightness always visible, increase near mouse
+            const nearMouse = mouseDistance < 250;
 
-              // Calculate depth-based opacity
-              const depthFactor = 1 - (Math.abs(neuron.depth) / (sphereRadiusRef * 1.5));
+            ctx.beginPath();
+            ctx.moveTo(neuron.screenX, neuron.screenY);
+            ctx.lineTo(connectedNeuron.screenX, connectedNeuron.screenY);
 
-              // Purple gradient for connections - more visible
-              const gradient = ctx.createLinearGradient(
-                neuron.screenX, neuron.screenY,
-                connectedNeuron.screenX, connectedNeuron.screenY
-              );
-              gradient.addColorStop(0, `rgba(168, 85, 247, ${connectionBrightness * 0.4 * depthFactor})`);
-              gradient.addColorStop(0.5, `rgba(180, 130, 250, ${connectionBrightness * 0.3 * depthFactor})`);
-              gradient.addColorStop(1, `rgba(139, 92, 246, ${connectionBrightness * 0.2 * depthFactor})`);
+            // Calculate depth-based opacity
+            const depthFactor = 1 - (Math.abs(neuron.depth) / (sphereRadiusRef * 1.5));
 
-              ctx.strokeStyle = gradient;
-              ctx.lineWidth = 0.2 + (0.3 * depthFactor);
-              ctx.stroke();
-            }
-          });
-        }
+            // Base opacity for all connections, higher when signals travel or near mouse
+            let baseOpacity = 0.12; // More visible base for all connections
+            if (signalOnConnection) baseOpacity = 0.35;
+            else if (nearMouse) baseOpacity = 0.2;
+
+            // Purple gradient for connections
+            const gradient = ctx.createLinearGradient(
+              neuron.screenX, neuron.screenY,
+              connectedNeuron.screenX, connectedNeuron.screenY
+            );
+            gradient.addColorStop(0, `rgba(168, 85, 247, ${baseOpacity * depthFactor})`);
+            gradient.addColorStop(0.5, `rgba(180, 130, 250, ${baseOpacity * 0.7 * depthFactor})`);
+            gradient.addColorStop(1, `rgba(139, 92, 246, ${baseOpacity * 0.4 * depthFactor})`);
+
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = signalOnConnection
+              ? 0.5 + (0.5 * depthFactor)
+              : 0.2 + (0.2 * depthFactor);
+            ctx.stroke();
+          }
+        });
       });
 
       // Draw neurons
@@ -293,18 +417,6 @@ export default function NeuralNetwork() {
         }
       });
 
-      // Random activation waves
-      if (Math.random() > 0.99) {
-        const randomIndex = Math.floor(Math.random() * neurons.length);
-        neurons[randomIndex].brightness = 1;
-
-        // Activate connected neurons
-        neurons[randomIndex].connections.forEach((connIndex) => {
-          setTimeout(() => {
-            neurons[connIndex].brightness = Math.max(neurons[connIndex].brightness, 0.7);
-          }, Math.random() * 200);
-        });
-      }
 
       animationRef.current = requestAnimationFrame(animate);
     };
