@@ -16,15 +16,6 @@ interface Neuron3D {
   brightness: number;
   baseBrightness: number;
   pulsePhase: number;
-  lastFired: number; // Track when neuron last fired
-}
-
-interface Signal {
-  fromNeuron: number;
-  toNeuron: number;
-  progress: number; // 0 to 1
-  strength: number;
-  speed: number;
 }
 
 interface ActiveRegion {
@@ -39,7 +30,6 @@ interface ActiveRegion {
 export default function NeuralNetwork() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const neuronsRef = useRef<Neuron3D[]>([]);
-  const signalsRef = useRef<Signal[]>([]);
   const activeRegionsRef = useRef<ActiveRegion[]>([]);
   const mouseRef = useRef({ x: 0, y: 0 });
   const frameRef = useRef(0);
@@ -60,87 +50,47 @@ export default function NeuralNetwork() {
     setCanvasSize();
     window.addEventListener("resize", setCanvasSize);
 
-    // Detect mobile device
-    const isMobile = window.innerWidth < 768;
-
-    // Create neurons - fewer on mobile, different distribution
+    // Create neurons in a 3D sphere (brain-like structure)
     const neurons: Neuron3D[] = [];
-    const neuronCount = isMobile ? 350 : 2500; // Much fewer on mobile
-    let sphereRadius: number;
+    const neuronCount = 800; // Reduced for better performance
+    const sphereRadius = canvas.width * 0.6; // Cover full width
 
-    if (isMobile) {
-      // MOBILE: Distribute neurons evenly across the viewport to avoid condensation
-      sphereRadius = canvas.width * 0.4; // Smaller sphere reference for mobile
-      const gridCols = Math.ceil(Math.sqrt(neuronCount * (canvas.width / canvas.height)));
-      const gridRows = Math.ceil(neuronCount / gridCols);
-      const cellWidth = canvas.width / (gridCols + 1);
-      const cellHeight = canvas.height / (gridRows + 1);
+    // Create neurons distributed in a sphere
+    for (let i = 0; i < neuronCount; i++) {
+      // Use golden angle spiral for even distribution
+      const goldenRatio = (1 + Math.sqrt(5)) / 2;
+      const theta = 2 * Math.PI * i / goldenRatio;
+      const phi = Math.acos(1 - 2 * i / neuronCount);
 
-      let neuronIndex = 0;
-      for (let row = 0; row < gridRows && neuronIndex < neuronCount; row++) {
-        for (let col = 0; col < gridCols && neuronIndex < neuronCount; col++) {
-          // Spread neurons evenly with jitter, avoiding center condensation
-          const baseX = (col + 1) * cellWidth;
-          const baseY = (row + 1) * cellHeight;
+      // Add some randomness for organic feel
+      const radiusVariation = 0.5 + Math.random() * 0.5;
+      const r = sphereRadius * radiusVariation;
 
-          // Add randomness but keep neurons spread out
-          const jitterX = (Math.random() - 0.5) * cellWidth * 0.4;
-          const jitterY = (Math.random() - 0.5) * cellHeight * 0.4;
+      // Convert spherical to Cartesian coordinates - make it wider (ellipsoid)
+      const x = r * Math.sin(phi) * Math.cos(theta) * 1.2; // Wider on X axis
+      const y = r * Math.sin(phi) * Math.sin(theta) * 0.6; // Compressed on Y axis
+      const z = r * Math.cos(phi) * 0.8; // Slightly compressed on Z axis
 
-          const x = baseX + jitterX - canvas.width / 2;
-          const y = baseY + jitterY - canvas.height / 2;
-          const z = (Math.random() - 0.5) * 50; // Very shallow depth for mobile
+      // Smaller neurons for more realistic look
+      const size = 0.05 + Math.random() * 0.15;
 
-          neurons.push({
-            x, y, z,
-            screenX: 0,
-            screenY: 0,
-            depth: 0,
-            size: 0.08 + Math.random() * 0.12, // Slightly smaller neurons on mobile
-            connections: [],
-            brightness: 0,
-            baseBrightness: Math.random() * 0.008,
-            pulsePhase: Math.random() * Math.PI * 2,
-            lastFired: -5 - Math.random() * 5
-          });
-          neuronIndex++;
-        }
-      }
-    } else {
-      // DESKTOP: Original sphere distribution
-      sphereRadius = canvas.width * 0.6;
-
-      for (let i = 0; i < neuronCount; i++) {
-        const goldenRatio = (1 + Math.sqrt(5)) / 2;
-        const theta = 2 * Math.PI * i / goldenRatio;
-        const phi = Math.acos(1 - 2 * i / neuronCount);
-
-        const radiusVariation = 0.5 + Math.random() * 0.5;
-        const r = sphereRadius * radiusVariation;
-
-        const x = r * Math.sin(phi) * Math.cos(theta) * 1.2;
-        const y = r * Math.sin(phi) * Math.sin(theta) * 0.6;
-        const z = r * Math.cos(phi) * 0.8;
-
-        neurons.push({
-          x, y, z,
-          screenX: 0,
-          screenY: 0,
-          depth: 0,
-          size: 0.05 + Math.random() * 0.15,
-          connections: [],
-          brightness: 0,
-          baseBrightness: Math.random() * 0.01,
-          pulsePhase: Math.random() * Math.PI * 2,
-          lastFired: -5 - Math.random() * 5
-        });
-      }
+      neurons.push({
+        x, y, z,
+        screenX: 0,
+        screenY: 0,
+        depth: 0,
+        size,
+        connections: [],
+        brightness: 0.1,
+        baseBrightness: 0.02 + Math.random() * 0.02,  // Brighter base glow
+        pulsePhase: Math.random() * Math.PI * 2
+      });
     }
 
-    // Create connections between neurons - much fewer on mobile
+    // Create connections between neurons
     neurons.forEach((neuron, i) => {
-      const maxConnections = isMobile ? 3 : 15 + Math.floor(Math.random() * 10); // Only 3 on mobile
-      const connectionRadius = isMobile ? 150 : canvas.width * 0.3;
+      const maxConnections = 5 + Math.floor(Math.random() * 5); // 5-10 connections per neuron for better performance
+      const connectionRadius = sphereRadius * 0.4; // Smaller radius for fewer connections
       const connections: number[] = [];
 
       // Find nearby neurons
@@ -161,7 +111,7 @@ export default function NeuralNetwork() {
       // Sort by distance and connect to closest neurons
       distances.sort((a, b) => a.dist - b.dist);
       for (let k = 0; k < Math.min(maxConnections, distances.length); k++) {
-        if (Math.random() > (isMobile ? 0.5 : 0.3)) { // Less connections on mobile
+        if (Math.random() > 0.5) { // 50% chance of connection for fewer total connections
           connections.push(distances[k].index);
         }
       }
@@ -170,11 +120,12 @@ export default function NeuralNetwork() {
     });
 
     neuronsRef.current = neurons;
+    const sphereRadiusRef = sphereRadius;
 
     // Give some random neurons initial brightness to start activity immediately
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 30; i++) {
       const randomNeuron = neurons[Math.floor(Math.random() * neurons.length)];
-      randomNeuron.brightness = 0.5 + Math.random() * 0.3;
+      randomNeuron.brightness = 0.6 + Math.random() * 0.4;
     }
 
     // Mouse move handler
@@ -218,21 +169,19 @@ export default function NeuralNetwork() {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       const neurons = neuronsRef.current;
-      const signals = signalsRef.current;
       const activeRegions = activeRegionsRef.current;
       const mouse = mouseRef.current;
       const time = frameRef.current * 0.01;
 
-      // Create random active regions (brain activity) - less frequent, even less on mobile
-      const activeRegionChance = isMobile ? 0.9995 : 0.998;
-      if (Math.random() > activeRegionChance) {
+      // Create random active regions (brain activity) - much less frequent for performance
+      if (Math.random() > 0.999) {
         const randomNeuron = neurons[Math.floor(Math.random() * neurons.length)];
         activeRegions.push({
           x: randomNeuron.x,
           y: randomNeuron.y,
           z: randomNeuron.z,
-          radius: isMobile ? (40 + Math.random() * 40) : (60 + Math.random() * 80),
-          strength: isMobile ? (0.3 + Math.random() * 0.2) : (0.5 + Math.random() * 0.2),
+          radius: 60 + Math.random() * 80,
+          strength: 0.5 + Math.random() * 0.2,
           decay: 0.96
         });
       }
@@ -245,7 +194,7 @@ export default function NeuralNetwork() {
       });
 
       // Update neuron brightness
-      neurons.forEach((neuron, index) => {
+      neurons.forEach((neuron) => {
         // Calculate distance from mouse in 2D space
         const mouseDistance = Math.hypot(
           neuron.screenX - mouse.x,
@@ -272,8 +221,8 @@ export default function NeuralNetwork() {
           }
         });
 
-        // Very subtle pulse effect
-        const pulse = Math.sin(time * 2 + neuron.pulsePhase) * 0.005;
+        // Subtle pulse effect
+        const pulse = Math.sin(time * 2 + neuron.pulsePhase) * 0.01;
 
         // Combine all brightness sources
         const targetBrightness = Math.max(mouseBrightness, regionBrightness) + neuron.baseBrightness + pulse;
@@ -285,94 +234,17 @@ export default function NeuralNetwork() {
           neuron.brightness = neuron.brightness * 0.92 + targetBrightness * 0.08;
         }
 
-        // Fire neuron and create signals if bright enough (with longer refractory period)
-        const refractoryPeriod = isMobile ? 4.0 : 3.0; // Longer on mobile
-        if (neuron.brightness > 0.4 && time - neuron.lastFired > refractoryPeriod) {
-          neuron.lastFired = time;
-          // Increase signal chance by 15% near mouse (reduced by 50%), even less on mobile
-          const nearMouse = mouseDistance < 250;
-          const signalChance = isMobile
-            ? (nearMouse ? 0.95 : 0.97) // 5% near mouse, 3% elsewhere on mobile
-            : (nearMouse ? 0.85 : 0.925); // 15% near mouse, 7.5% elsewhere on desktop
-
-          if (Math.random() > signalChance && neuron.connections.length > 0) {
-            const connIndex = neuron.connections[Math.floor(Math.random() * neuron.connections.length)];
-            signals.push({
-              fromNeuron: index,
-              toNeuron: connIndex,
-              progress: 0,
-              strength: neuron.brightness * 0.7,
-              speed: 0.015 + Math.random() * 0.015
-            });
-          }
-        }
-      });
-
-      // Update and draw signals
-      signalsRef.current = signals.filter(signal => {
-        signal.progress += signal.speed;
-
-        // Remove completed signals
-        if (signal.progress >= 1) {
-          // Slightly activate target neuron when signal arrives
-          neurons[signal.toNeuron].brightness = Math.min(1,
-            neurons[signal.toNeuron].brightness + signal.strength * 0.2);
-          return false;
-        }
-
-        // Draw the signal
-        const fromNeuron = neurons[signal.fromNeuron];
-        const toNeuron = neurons[signal.toNeuron];
-
-        // Interpolate position along the connection
-        const x = fromNeuron.screenX + (toNeuron.screenX - fromNeuron.screenX) * signal.progress;
-        const y = fromNeuron.screenY + (toNeuron.screenY - fromNeuron.screenY) * signal.progress;
-
-        // Draw signal as glowing segment traveling along connection
-        const tailLength = 0.08; // Length of the tail as percentage of connection
-        const tailProgress = Math.max(0, signal.progress - tailLength);
-        const tailX = fromNeuron.screenX + (toNeuron.screenX - fromNeuron.screenX) * tailProgress;
-        const tailY = fromNeuron.screenY + (toNeuron.screenY - fromNeuron.screenY) * tailProgress;
-
-        // Glow effect around signal - more purple
-        const glowGradient = ctx.createRadialGradient(x, y, 0, x, y, 8);
-        glowGradient.addColorStop(0, `rgba(210, 170, 250, ${signal.strength * 0.3})`);
-        glowGradient.addColorStop(1, `rgba(180, 120, 240, 0)`);
-
-        ctx.beginPath();
-        ctx.arc(x, y, 8, 0, Math.PI * 2);
-        ctx.fillStyle = glowGradient;
-        ctx.fill();
-
-        // Main signal trail - purple-tinted, not white
-        const gradient = ctx.createLinearGradient(tailX, tailY, x, y);
-        gradient.addColorStop(0, `rgba(180, 120, 240, 0)`);
-        gradient.addColorStop(0.3, `rgba(200, 150, 250, ${signal.strength * 0.3})`);
-        gradient.addColorStop(0.7, `rgba(220, 180, 250, ${signal.strength * 0.6})`);
-        gradient.addColorStop(1, `rgba(230, 200, 255, ${signal.strength * 0.9})`);
-
-        ctx.beginPath();
-        ctx.moveTo(tailX, tailY);
-        ctx.lineTo(x, y);
-        ctx.strokeStyle = gradient;
-        ctx.lineWidth = 1 + signal.strength * 0.5;
-        ctx.lineCap = 'round';
-        ctx.stroke();
-
-        // Leading edge - purple-white mix
-        ctx.beginPath();
-        ctx.arc(x, y, 0.8 + signal.strength * 0.4, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(225, 200, 255, ${signal.strength * 0.9})`;
-        ctx.fill();
-
-        return true;
+        // Removed signal creation to improve performance
       });
 
       // Sort neurons by depth (back to front)
       const sortedNeurons = [...neurons].sort((a, b) => a.depth - b.depth);
 
-      // Draw ALL connections for ALL neurons
-      sortedNeurons.forEach((neuron, neuronIndex) => {
+      // Draw connections only for neurons closer to viewer for performance
+      sortedNeurons.forEach((neuron) => {
+        // Skip drawing connections for neurons too far back
+        if (Math.abs(neuron.depth) > sphereRadiusRef * 0.7) return;
+
         neuron.connections.forEach((connIndex) => {
           const connectedNeuron = neurons[connIndex];
 
@@ -384,12 +256,6 @@ export default function NeuralNetwork() {
               neuron.screenY - mouse.y
             );
 
-            // Check if there's a signal on this connection
-            const signalOnConnection = signals.find(s =>
-              (s.fromNeuron === neuronIndex && s.toNeuron === connIndex) ||
-              (s.fromNeuron === connIndex && s.toNeuron === neuronIndex)
-            );
-
             // Base brightness always visible, increase near mouse
             const nearMouse = mouseDistance < 250;
 
@@ -398,12 +264,11 @@ export default function NeuralNetwork() {
             ctx.lineTo(connectedNeuron.screenX, connectedNeuron.screenY);
 
             // Calculate depth-based opacity
-            const depthFactor = 1 - (Math.abs(neuron.depth) / (sphereRadius * 1.5));
+            const depthFactor = 1 - (Math.abs(neuron.depth) / (sphereRadiusRef * 1.5));
 
-            // Base opacity for all connections, higher when signals travel or near mouse
-            let baseOpacity = 0.12; // More visible base for all connections
-            if (signalOnConnection) baseOpacity = 0.35;
-            else if (nearMouse) baseOpacity = 0.2;
+            // Base opacity for all connections, higher near mouse
+            let baseOpacity = 0.25; // Brighter base for all connections
+            if (nearMouse) baseOpacity = 0.35;
 
             // Purple gradient for connections
             const gradient = ctx.createLinearGradient(
@@ -415,9 +280,7 @@ export default function NeuralNetwork() {
             gradient.addColorStop(1, `rgba(139, 92, 246, ${baseOpacity * 0.4 * depthFactor})`);
 
             ctx.strokeStyle = gradient;
-            ctx.lineWidth = signalOnConnection
-              ? 0.5 + (0.5 * depthFactor)
-              : 0.2 + (0.2 * depthFactor);
+            ctx.lineWidth = 0.3 + (0.3 * depthFactor);
             ctx.stroke();
           }
         });
@@ -426,17 +289,17 @@ export default function NeuralNetwork() {
       // Draw neurons
       sortedNeurons.forEach((neuron) => {
         // Calculate depth-based size and opacity
-        const depthScale = 1 - (neuron.depth + sphereRadius) / (sphereRadius * 2);
+        const depthScale = 1 - (neuron.depth + sphereRadiusRef) / (sphereRadiusRef * 2);
         const size = (0.5 + neuron.size * 2) * (0.6 + depthScale * 0.4);
-        const alpha = Math.max(0.1, Math.min(1, neuron.brightness + 0.2)) * (0.3 + depthScale * 0.7);
+        const alpha = Math.max(0.3, Math.min(1, neuron.brightness + 0.4)) * (0.5 + depthScale * 0.5);
 
         // Glow effect for bright neurons
-        if (neuron.brightness > 0.3) {
+        if (neuron.brightness > 0.2) {
           const gradient = ctx.createRadialGradient(
             neuron.screenX, neuron.screenY, 0,
             neuron.screenX, neuron.screenY, size * 6
           );
-          gradient.addColorStop(0, `rgba(200, 180, 255, ${neuron.brightness * 0.3 * depthScale})`);
+          gradient.addColorStop(0, `rgba(200, 180, 255, ${neuron.brightness * 0.5 * depthScale})`);
           gradient.addColorStop(1, "rgba(168, 85, 247, 0)");
 
           ctx.beginPath();
@@ -486,7 +349,7 @@ export default function NeuralNetwork() {
       className="absolute inset-0 pointer-events-none"
       style={{
         mixBlendMode: "screen",
-        opacity: 0.95
+        opacity: 1
       }}
     />
   );
