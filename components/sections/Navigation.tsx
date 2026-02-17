@@ -3,11 +3,16 @@
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import GlowButton from "../animations/GlowButton";
 
 export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { scrollY } = useScroll();
+  const pathname = usePathname();
+  const isHomePage = pathname === "/";
+
   const backgroundColor = useTransform(
     scrollY,
     [0, 100],
@@ -16,9 +21,10 @@ export default function Navigation() {
   const backdropBlur = useTransform(scrollY, [0, 100], ["blur(0px)", "blur(10px)"]);
 
   const navItems = [
-    { label: "Solution", href: "#solution" },
-    { label: "Technology", href: "#how-it-works" },
-    { label: "Pricing", href: "#pricing" },
+    { label: "Solution", href: "#solution", type: "section" },
+    { label: "Technology", href: "#how-it-works", type: "section" },
+    { label: "Pricing", href: "#pricing", type: "section" },
+    { label: "Careers", href: "/careers", type: "page" },
   ];
 
   const scrollToSection = (href: string) => {
@@ -43,41 +49,56 @@ export default function Navigation() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <motion.button
-              onClick={() => scrollToSection("#")}
-              className="flex-shrink-0 flex items-center gap-3 cursor-pointer"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
-              whileHover={{ scale: 1.05 }}
-            >
-              <Image
-                src="/images/Untitled design (9).png"
-                alt="ARCHTYP"
-                width={40}
-                height={40}
-                className="w-auto h-10 object-contain"
-              />
-              <span className="text-xl font-display font-bold text-archtyp-text-primary hidden sm:block">
-                ARCHTYP
-              </span>
-            </motion.button>
+            <Link href="/" className="flex-shrink-0">
+              <motion.div
+                className="flex items-center gap-3 cursor-pointer"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5 }}
+                whileHover={{ scale: 1.05 }}
+              >
+                <Image
+                  src="/images/Untitled design (9).png"
+                  alt="ARCHTYP"
+                  width={40}
+                  height={40}
+                  className="w-auto h-10 object-contain"
+                />
+                <span className="text-xl font-display font-bold text-archtyp-text-primary hidden sm:block">
+                  ARCHTYP
+                </span>
+              </motion.div>
+            </Link>
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
-              {navItems.map((item, index) => (
-                <motion.button
-                  key={item.label}
-                  onClick={() => scrollToSection(item.href)}
-                  className="text-archtyp-text-secondary hover:text-archtyp-purple-primary transition-colors duration-300 font-medium"
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  whileHover={{ scale: 1.05 }}
-                >
-                  {item.label}
-                </motion.button>
-              ))}
+              {navItems.map((item, index) =>
+                item.type === "page" ? (
+                  <Link key={item.label} href={item.href}>
+                    <motion.span
+                      className="text-archtyp-text-secondary hover:text-archtyp-purple-primary transition-colors duration-300 font-medium cursor-pointer"
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      whileHover={{ scale: 1.05 }}
+                    >
+                      {item.label}
+                    </motion.span>
+                  </Link>
+                ) : (
+                  <motion.button
+                    key={item.label}
+                    onClick={() => isHomePage ? scrollToSection(item.href) : window.location.href = `/${item.href}`}
+                    className="text-archtyp-text-secondary hover:text-archtyp-purple-primary transition-colors duration-300 font-medium"
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    whileHover={{ scale: 1.05 }}
+                  >
+                    {item.label}
+                  </motion.button>
+                )
+              )}
               <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -129,18 +150,31 @@ export default function Navigation() {
           className="fixed inset-0 z-40 bg-archtyp-bg-primary md:hidden"
         >
           <div className="flex flex-col items-center justify-center h-full space-y-8">
-            {navItems.map((item, index) => (
-              <motion.button
-                key={item.label}
-                onClick={() => scrollToSection(item.href)}
-                className="text-3xl font-display text-archtyp-text-primary hover:text-archtyp-purple-primary transition-colors"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                {item.label}
-              </motion.button>
-            ))}
+            {navItems.map((item, index) =>
+              item.type === "page" ? (
+                <Link key={item.label} href={item.href} onClick={() => setMobileMenuOpen(false)}>
+                  <motion.span
+                    className="text-3xl font-display text-archtyp-text-primary hover:text-archtyp-purple-primary transition-colors"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    {item.label}
+                  </motion.span>
+                </Link>
+              ) : (
+                <motion.button
+                  key={item.label}
+                  onClick={() => isHomePage ? scrollToSection(item.href) : window.location.href = `/${item.href}`}
+                  className="text-3xl font-display text-archtyp-text-primary hover:text-archtyp-purple-primary transition-colors"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  {item.label}
+                </motion.button>
+              )
+            )}
             <GlowButton onClick={() => scrollToSection("#contact")}>Contact</GlowButton>
           </div>
         </motion.div>
